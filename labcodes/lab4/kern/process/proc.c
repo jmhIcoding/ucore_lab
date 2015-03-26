@@ -86,6 +86,16 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
+        proc->state = PROC_UNINIT;
+        proc->pid = -1;
+        proc->runs = 0;
+        proc->need_resched = 1;
+        proc->parent = 0;
+        proc->mm = 0;
+        proc->tf = 0;
+        proc->cr3 = boot_cr3;
+        proc->flags = 0;
+
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
@@ -102,6 +112,7 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
+        
     }
     return proc;
 }
@@ -296,6 +307,16 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+    proc = alloc_proc();
+    proc->pid = get_pid();
+    setup_kstack(proc);
+    copy_mm(clone_flags, proc);
+    copy_thread(proc, stack, tf);
+    list_add(&proc_list, &(proc->list_link));
+    hash_proc(proc);
+    wakeup_proc(proc);
+    ret = proc->pid;
+    
 fork_out:
     return ret;
 
