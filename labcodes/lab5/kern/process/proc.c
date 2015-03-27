@@ -120,7 +120,6 @@ alloc_proc(void) {
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
 	 */
-        
         proc->wait_state = 0;
         proc->cptr = proc->yptr = proc->optr = NULL;
     }
@@ -417,6 +416,19 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
 	*    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
 	*    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
+    proc = alloc_proc();
+    proc->pid = get_pid();
+    proc->parent = current;
+    assert(current->wait_state == 0);
+    setup_kstack(proc);
+    copy_mm(clone_flags, proc);
+    copy_thread(proc, stack, tf);
+    set_links(proc);
+    //list_add(&proc_list, &(proc->list_link));
+    hash_proc(proc);
+    wakeup_proc(proc);
+    ret = proc->pid;
+    
 	
 fork_out:
     return ret;
