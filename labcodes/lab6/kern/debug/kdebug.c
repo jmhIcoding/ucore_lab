@@ -347,5 +347,22 @@ print_stackframe(void) {
       *           NOTICE: the calling funciton's return addr eip  = ss:[ebp+4]
       *                   the calling funciton's ebp = ss:[ebp]
       */
+    uint32_t ebp = read_ebp();
+    uint32_t eip = read_eip();
+    uint32_t arg, addr;
+    int i = 0;
+
+    while (1) {
+        cprintf("ebp:0x%08x eip:0x%08x args:", ebp, eip);
+        for (addr = ebp + 8; addr < ebp + 24; addr += 4) {
+            asm volatile("movl (%1), %0" : "=r"(arg) : "r"(addr));
+            cprintf("0x%08x ", arg);
+        }
+        cprintf("\n");
+        print_debuginfo(eip - 1);
+        if (ebp == 0 || (i ++) >= STACKFRAME_DEPTH) break;
+        asm volatile("movl 4(%1), %0" : "=r"(eip) : "r"(ebp));
+        asm volatile("movl (%1), %0"  : "=r"(ebp) : "r"(ebp));
+    }
 }
 

@@ -410,19 +410,6 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    6. call wakup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
 
-    proc = alloc_proc();
-    proc->pid = get_pid();
-    proc->parent = current;
-    assert(current->wait_state == 0);
-    setup_kstack(proc);
-    copy_mm(clone_flags, proc);
-    copy_thread(proc, stack, tf);
-    set_links(proc);
-    //list_add(&proc_list, &(proc->list_link));
-    hash_proc(proc);
-    wakeup_proc(proc);
-    ret = proc->pid;
-
 	//LAB5 YOUR CODE : (update LAB4 steps)
    /* Some Functions
     *    set_links:  set the relation links of process.  ALSO SEE: remove_links:  lean the relation links of process 
