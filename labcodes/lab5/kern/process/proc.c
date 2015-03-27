@@ -413,7 +413,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     proc = alloc_proc();
     proc->pid = get_pid();
     proc->parent = current;
-    assert(proc->wait_state == 0);
+    assert(current->wait_state == 0);
     setup_kstack(proc);
     copy_mm(clone_flags, proc);
     copy_thread(proc, stack, tf);
