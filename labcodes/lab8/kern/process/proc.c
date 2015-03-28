@@ -90,6 +90,17 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
+        proc->state = PROC_UNINIT;
+        proc->pid = -1;
+        proc->runs = 0;
+        proc->need_resched = 0;
+        proc->parent = 0;
+        proc->mm = 0;
+        proc->tf = 0;
+        proc->cr3 = boot_cr3;
+        proc->flags = 0;
+
+
     //LAB4:EXERCISE1 YOUR CODE
     /*
      * below fields in proc_struct need to be initialized
@@ -107,11 +118,14 @@ alloc_proc(void) {
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
      //LAB5 YOUR CODE : (update LAB4 steps)
+  
     /*
      * below fields(add in LAB5) in proc_struct need to be initialized	
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
 	 */
+        proc->wait_state = 0;
+        proc->cptr = proc->yptr = proc->optr = NULL;
      //LAB6 YOUR CODE : (update LAB5 steps)
     /*
      * below fields(add in LAB6) in proc_struct need to be initialized
@@ -122,7 +136,15 @@ alloc_proc(void) {
      *     uint32_t lab6_stride;                       // FOR LAB6 ONLY: the current stride of the process
      *     uint32_t lab6_priority;                     // FOR LAB6 ONLY: the priority of process, set by lab6_set_priority(uint32_t)
      */
+        proc->rq = NULL;
+        list_init(&proc->run_link);
+        proc->time_slice = 0;
+        memset(&(proc->lab6_run_pool), 0, sizeof(skew_heap_entry_t));
+        proc->lab6_stride = 0;
+        proc->lab6_priority = 1;
     //LAB8:EXERCISE2 YOUR CODE HINT:need add some code to init fs in proc_struct, ...
+        proc->filesp = NULL;
+    
     }
     return proc;
 }
@@ -453,6 +475,18 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
+    proc = alloc_proc();
+    proc->pid = get_pid();
+    proc->parent = current;
+    assert(current->wait_state == 0);
+    setup_kstack(proc);
+    copy_mm(clone_flags, proc);
+    copy_thread(proc, stack, tf);
+    set_links(proc);
+    //list_add(&proc_list, &(proc->list_link));
+    hash_proc(proc);
+    wakeup_proc(proc);
+    ret = proc->pid;
 
 	//LAB5 YOUR CODE : (update LAB4 steps)
    /* Some Functions
