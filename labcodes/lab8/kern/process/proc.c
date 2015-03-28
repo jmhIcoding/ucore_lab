@@ -482,6 +482,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     setup_kstack(proc);
     copy_mm(clone_flags, proc);
     copy_thread(proc, stack, tf);
+    copy_files(clone_flags, proc);
     set_links(proc);
     //list_add(&proc_list, &(proc->list_link));
     hash_proc(proc);
@@ -854,7 +855,7 @@ init_main(void *arg) {
     if (pid <= 0) {
         panic("create user_main failed.\n");
     }
- extern void check_sync(void);
+    extern void check_sync(void);
     check_sync();                // check philosopher sync problem
 
     while (do_wait(0, NULL) == 0) {
