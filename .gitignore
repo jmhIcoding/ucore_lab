@@ -30,3 +30,5 @@ labcodes/lab7/Makefile
 
 labcodes/lab8/disk0/
 labcodes_answer/lab8_result/disk0
+
+labcodes/smp/disk0/
