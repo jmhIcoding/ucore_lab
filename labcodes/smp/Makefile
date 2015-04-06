@@ -168,7 +168,8 @@ KINCLUDE	+= kern/debug/ \
 			   kern/fs/swap/ \
 			   kern/fs/vfs/ \
 			   kern/fs/devs/ \
-			   kern/fs/sfs/ 
+			   kern/fs/sfs/ \
+			   kern/smp
 
 
 KSRCDIR		+= kern/init \
@@ -185,22 +186,31 @@ KSRCDIR		+= kern/init \
 			   kern/fs/swap \
 			   kern/fs/vfs \
 			   kern/fs/devs \
-			   kern/fs/sfs
+			   kern/fs/sfs\
+			   kern/smp
 
 KCFLAGS		+= $(addprefix -I,$(KINCLUDE))
 
 $(call add_files_cc,$(call listf_cc,$(KSRCDIR)),kernel,$(KCFLAGS))
 
-KOBJS	= $(call read_packet,kernel libs)
+KOBJS	= $(filter-out obj/kern/init/entryother.o, $(call read_packet,kernel libs))
+ 		 
+
+entryother = $(call toobj,entryother)
+$(entryother): $(call toobj,kern/init/entryother.S)
+	$(V)$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o $(call toobj,bootblockother) $^
+	@$(OBJCOPY) -S -O binary -j .text $(call toobj,bootblockother) $(call toobj,entryother)
+	@$(OBJDUMP) -S $(call toobj,bootblockother) > $(call asmfile,entryother)
+
 
 # create kernel target
 kernel = $(call totarget,kernel)
 
 $(kernel): tools/kernel.ld
 
-$(kernel): $(KOBJS)
+$(kernel): $(KOBJS) $(entryother)
 	@echo + ld $@
-	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS)
+	$(V)$(LD) $(LDFLAGS) -T tools/kernel.ld -o $@ $(KOBJS) -b binary $(entryother)
 	@$(OBJDUMP) -S $@ > $(call asmfile,kernel)
 	@$(OBJDUMP) -t $@ | $(SED) '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $(call symfile,kernel)
 
@@ -222,6 +232,8 @@ $(bootblock): $(call toobj,boot/bootasm.S) $(call toobj,$(bootfiles)) | $(call t
 	@$(call totarget,sign) $(call outfile,bootblock) $(bootblock)
 
 $(call create_target,bootblock)
+
+
 
 # -------------------------------------------------------------------
 
@@ -305,7 +317,7 @@ TARGETS: $(TARGETS)
 
 .DEFAULT_GOAL := TARGETS
 
-QEMUOPTS = -hda $(UCOREIMG) -drive file=$(SWAPIMG),media=disk,cache=writeback -drive file=$(SFSIMG),media=disk,cache=writeback 
+QEMUOPTS = -hda $(UCOREIMG) -drive file=$(SWAPIMG),media=disk,cache=writeback -drive file=$(SFSIMG),media=disk,cache=writeback -smp 4 
 
 .PHONY: qemu qemu-nox debug debug-nox monitor
 qemu-mon: $(UCOREIMG) $(SWAPIMG) $(SFSIMG)
@@ -368,9 +380,8 @@ print-%:
 
 .PHONY: clean dist-clean handin packall tags
 clean:
-	$(V)$(RM) $(GRADE_GDB_IN) $(GRADE_QEMU_OUT)  $(SFSBINS) cscope* tags
-	$(V)$(RM) -r $(OBJDIR) $(BINDIR) $(SFSROOT)
-
+	$(V)$(RM) $(GRADE_GDB_IN) $(GRADE_QEMU_OUT)  $(SFSBINS) cscope* entryother entryother.o entryoher.asm
+	$(V)$(RM) -r $(OBJDIR) $(BINDIR) $(SFSROOT) 
 dist-clean: clean
 	-$(RM) $(HANDIN)
 

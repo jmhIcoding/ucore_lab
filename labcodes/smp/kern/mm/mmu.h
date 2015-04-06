@@ -32,6 +32,7 @@
 #define STA_R           0x2         // Readable (executable segments)
 #define STA_A           0x1         // Accessed
 
+
 /* System segment type bits */
 #define STS_T16A        0x1         // Available 16-bit TSS
 #define STS_LDT         0x2         // Local Descriptor Table
@@ -128,13 +129,10 @@ struct segdesc {
 #define SEG_NULL                                            \
     (struct segdesc) {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-#define SEG(type, base, lim, dpl)                           \
-    (struct segdesc) {                                      \
-        ((lim) >> 12) & 0xffff, (base) & 0xffff,            \
-        ((base) >> 16) & 0xff, type, 1, dpl, 1,             \
-        (unsigned)(lim) >> 28, 0, 0, 1, 1,                  \
-        (unsigned) (base) >> 24                             \
-    }
+#define SEG(type, base, lim, dpl) (struct segdesc)    \
+{ ((lim) >> 12) & 0xffff, (uint)(base) & 0xffff,      \
+  ((uint)(base) >> 16) & 0xff, type, 1, dpl, 1,       \
+  (uint)(lim) >> 28, 0, 0, 1, 1, (uint)(base) >> 24 }
 
 #define SEGTSS(type, base, lim, dpl)                        \
     (struct segdesc) {                                      \

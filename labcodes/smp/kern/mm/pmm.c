@@ -11,6 +11,7 @@
 #include <swap.h>
 #include <vmm.h>
 #include <kmalloc.h>
+#include <proc.h>
 
 /* *
  * Task State Segment:
@@ -83,6 +84,7 @@ static struct segdesc gdt[] = {
     [SEG_UTEXT] = SEG(STA_X | STA_R, 0x0, 0xFFFFFFFF, DPL_USER),
     [SEG_UDATA] = SEG(STA_W, 0x0, 0xFFFFFFFF, DPL_USER),
     [SEG_TSS]   = SEG_NULL,
+    [SEG_KCPU]  = SEG_NULL,
 };
 
 static struct pseudodesc gdt_pd = {
@@ -100,7 +102,7 @@ static void check_boot_pgdir(void);
 static inline void
 lgdt(struct pseudodesc *pd) {
     asm volatile ("lgdt (%0)" :: "r" (pd));
-    asm volatile ("movw %%ax, %%gs" :: "a" (USER_DS));
+    //asm volatile ("movw %%ax, %%gs" :: "a" (USER_DS));
     asm volatile ("movw %%ax, %%fs" :: "a" (USER_DS));
     asm volatile ("movw %%ax, %%es" :: "a" (KERNEL_DS));
     asm volatile ("movw %%ax, %%ds" :: "a" (KERNEL_DS));
@@ -109,6 +111,29 @@ lgdt(struct pseudodesc *pd) {
     asm volatile ("ljmp %0, $1f\n 1:\n" :: "i" (KERNEL_CS));
 }
 
+
+static inline void 
+lgdt_xv6(struct segdesc *p, int size)
+{
+    volatile ushort pd[3];
+
+    pd[0] = size-1;
+    pd[1] = (uint)p;
+    pd[2] = (uint)p >> 16;
+
+    asm volatile("lgdt (%0)" : : "r" (pd));
+    
+    asm volatile ("movw %%ax, %%fs" :: "a" (USER_DS));
+    asm volatile ("movw %%ax, %%es" :: "a" (KERNEL_DS));
+    asm volatile ("movw %%ax, %%ds" :: "a" (KERNEL_DS));
+    asm volatile ("movw %%ax, %%ss" :: "a" (KERNEL_DS));
+    // reload cs
+    asm volatile ("ljmp %0, $1f\n 1:\n" :: "i" (KERNEL_CS));
+
+}
+
+
+
 /* *
  * load_esp0 - change the ESP0 in default task state segment,
  * so that we can use different kernel stack when we trap frame
@@ -116,25 +141,43 @@ lgdt(struct pseudodesc *pd) {
  * */
 void
 load_esp0(uintptr_t esp0) {
-    ts.ts_esp0 = esp0;
+    cpus[cpunum()].ts.ts_esp0 = esp0;
 }
 
 /* gdt_init - initialize the default GDT and TSS */
-static void
+void
 gdt_init(void) {
     // set boot kernel stack and default SS0
-    load_esp0((uintptr_t)bootstacktop);
-    ts.ts_ss0 = KERNEL_DS;
+    struct cpu *c = &cpus[cpunum()];
+    if (cpunum() == 0) load_esp0((uintptr_t)bootstacktop);
+    else load_esp0((uintptr_t)(*(void**)(KADDR(0x7000)-4)));
+    
+    //ts.ts_ss0 = KERNEL_DS;
+    c->ts.ts_ss0 = KERNEL_DS;
 
     // initialize the TSS filed of the gdt
-    gdt[SEG_TSS] = SEGTSS(STS_T32A, (uintptr_t)&ts, sizeof(ts), DPL_KERNEL);
 
-    // reload all segment registers
-    lgdt(&gdt_pd);
 
+    c->gdt[SEG_KTEXT] = SEG(STA_X|STA_R, 0, 0xffffffff, 0);
+    c->gdt[SEG_KDATA] = SEG(STA_W, 0, 0xffffffff, 0);
+    c->gdt[SEG_UTEXT] = SEG(STA_X|STA_R, 0, 0xffffffff, DPL_USER);
+    c->gdt[SEG_UDATA] = SEG(STA_W, 0, 0xffffffff, DPL_USER);
+    c->gdt[SEG_KCPU] = SEG(STA_W, (&c->cpu), 8, 0);
+    c->gdt[SEG_TSS] = SEGTSS(STS_T32A, (uintptr_t)&c->ts, sizeof(c->ts), DPL_KERNEL);
+
+    //lgdt(&gdt_pd);
+    
+    lgdt_xv6(c->gdt, sizeof(c->gdt));
+    
     // load the TSS
     ltr(GD_TSS);
+    loadgs(SEG_KCPU << 3);
+    //...
+    cpu = c;
+    current = 0;
 }
+
+
 
 //init_pmm_manager - initialize a pmm_manager instance
 static void
@@ -252,7 +295,7 @@ page_init(void) {
     }
 }
 
-static void
+void
 enable_paging(void) {
     lcr3(boot_cr3);
 
@@ -328,7 +371,12 @@ pmm_init(void) {
     // map all physical memory to linear memory with base linear addr KERNBASE
     //linear_addr KERNBASE~KERNBASE+KMEMSIZE = phy_addr 0~KMEMSIZE
     //But shouldn't use this map until enable_paging() & gdt_init() finished.
+    //struct kmap *k = kmap; 
+    //for(k = kmap; k < &kmap[NELEM(kmap)]; k++)
+    //boot_map_segment(boot_pgdir, (uintptr_t)k->virt, k->phys_end - k->phys_start, (uint)k->phys_start, PTE_W);
+    
     boot_map_segment(boot_pgdir, KERNBASE, KMEMSIZE, 0, PTE_W);
+    boot_map_segment(boot_pgdir, DEVSPACE, 0 - DEVSPACE, DEVSPACE, PTE_W); // ??? 
 
     //temporary map: 
     //virtual_addr 3G~3G+4M = linear_addr 0~4M = linear_addr 3G~3G+4M = phy_addr 0~4M     

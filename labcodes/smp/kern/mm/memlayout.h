@@ -9,6 +9,7 @@
 #define SEG_UTEXT   3
 #define SEG_UDATA   4
 #define SEG_TSS     5
+#define SEG_KCPU    6
 
 /* global descrptor numbers */
 #define GD_KTEXT    ((SEG_KTEXT) << 3)      // kernel text
@@ -16,6 +17,7 @@
 #define GD_UTEXT    ((SEG_UTEXT) << 3)      // user text
 #define GD_UDATA    ((SEG_UDATA) << 3)      // user data
 #define GD_TSS      ((SEG_TSS) << 3)        // task segment selector
+#define GD_KCPU     ((SEG_KCPU) << 3)
 
 #define DPL_KERNEL  (0)
 #define DPL_USER    (3)
@@ -24,6 +26,11 @@
 #define KERNEL_DS   ((GD_KDATA) | DPL_KERNEL)
 #define USER_CS     ((GD_UTEXT) | DPL_USER)
 #define USER_DS     ((GD_UDATA) | DPL_USER)
+
+
+#define EXTMEM  0x100000            // Start of extended memory
+#define PHYSTOP 0xE000000           // Top physical memory
+#define DEVSPACE 0xFE000000         // Other devices are at high addresses
 
 /* *
  * Virtual memory map:                                          Permissions
@@ -111,6 +118,17 @@ typedef pte_t swap_entry_t; //the pte can also be a swap entry
 #define E820MAX             20      // number of entries in E820MAP
 #define E820_ARM            1       // address range memory
 #define E820_ARR            2       // address range reserved
+
+#ifndef __ASSEMBLER__
+static inline uint v2p(void *a) { return ((uint) (a))  - KERNBASE; }
+static inline void *p2v(uint a) { return (void *) ((a) + KERNBASE); }
+#endif
+
+#define V2P(a) (((uint) (a)) - KERNBASE)
+#define P2V(a) (((void *) (a)) + KERNBASE)
+
+#define V2P_WO(x) ((x) - KERNBASE)    // same as V2P, but without casts
+#define P2V_WO(x) ((x) + KERNBASE)    // same as V2P, but without casts
 
 struct e820map {
     int nr_map;

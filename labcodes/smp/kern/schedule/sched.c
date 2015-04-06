@@ -32,7 +32,7 @@ sched_class_pick_next(void) {
 
 static void
 sched_class_proc_tick(struct proc_struct *proc) {
-    if (proc != idleproc) {
+    if (proc->pid != 0) {
         sched_class->proc_tick(rq, proc);
     }
     else {
@@ -93,6 +93,7 @@ schedule(void) {
         }
         next->runs ++;
         if (next != current) {
+            //cprintf("cpu %d running: %s\n", cpunum(), next->name);
             proc_run(next);
         }
     }
@@ -169,7 +170,11 @@ run_timer_list(void) {
                 timer = le2timer(le, timer_link);
             }
         }
-        sched_class_proc_tick(current);
+        //shed_class_proc_tick(current);
+        //sched_class_proc_tick(current);
+        int i;
+        for (i = 0; i < ncpu; i ++) sched_class_proc_tick(cpus[i].current);
     }
     local_intr_restore(intr_flag);
 }
+

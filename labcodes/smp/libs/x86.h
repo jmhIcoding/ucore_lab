@@ -51,11 +51,40 @@ static inline uintptr_t rcr2(void) __attribute__((always_inline));
 static inline uintptr_t rcr3(void) __attribute__((always_inline));
 static inline void invlpg(void *addr) __attribute__((always_inline));
 
+static inline void
+loadgs(ushort v)
+{
+  asm volatile("movw %0, %%gs" : : "r" (v));
+}
+
+static inline uint
+xchg(volatile uint *addr, uint newval)
+{
+  uint result;
+  
+  // The + in "+m" denotes a read-modify-write operand.
+  asm volatile("lock; xchgl %0, %1" :
+               "+m" (*addr), "=a" (result) :
+               "1" (newval) :
+               "cc");
+  return result;
+}
+
+
+
 static inline uint8_t
 inb(uint16_t port) {
     uint8_t data;
     asm volatile ("inb %1, %0" : "=a" (data) : "d" (port) : "memory");
     return data;
+}
+
+static inline uint
+readeflags(void)
+{
+  uint eflags;
+  asm volatile("pushfl; popl %0" : "=r" (eflags));
+  return eflags;
 }
 
 static inline uint16_t

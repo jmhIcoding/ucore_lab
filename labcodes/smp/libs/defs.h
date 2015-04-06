@@ -24,6 +24,10 @@ typedef unsigned int uint32_t;
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
 
+#define uint uint32_t
+#define ushort uint16_t
+#define uchar uint8_t
+
 /* *
  * Pointers and addresses are 32 bits long.
  * We use pointer types to represent addresses,
@@ -74,6 +78,8 @@ uint32_t __n = (uint32_t)(n);                           \
  * */
 #define to_struct(ptr, type, member)                               \
     ((type *)((char *)(ptr) - offsetof(type, member)))
+
+#define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
 #endif /* !__LIBS_DEFS_H__ */
 

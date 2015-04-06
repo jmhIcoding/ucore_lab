@@ -85,3 +85,8 @@ __exec(const char *name, const char **argv) {
     }
     return sys_exec(name, argc, argv);
 }
+
+
+int getcpu(void) {
+    return sys_getcpu();
+}

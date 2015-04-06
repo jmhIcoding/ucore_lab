@@ -108,6 +108,7 @@ serial_init(void) {
 
     if (serial_exists) {
         pic_enable(IRQ_COM1);
+        ioapicenable(IRQ_COM1, 0);
     }
 }
 
@@ -404,11 +405,12 @@ kbd_intr(void) {
     cons_intr(kbd_proc_data);
 }
 
-static void
+void
 kbd_init(void) {
     // drain the kbd buffer
     kbd_intr();
     pic_enable(IRQ_KBD);
+    ioapicenable(IRQ_KBD, 0);
 }
 
 /* cons_init - initializes the console devices */
@@ -416,7 +418,7 @@ void
 cons_init(void) {
     cga_init();
     serial_init();
-    kbd_init();
+    //kbd_init();
     if (!serial_exists) {
         cprintf("serial port does not exist!!\n");
     }

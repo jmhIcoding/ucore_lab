@@ -3,8 +3,10 @@
 
 #include <defs.h>
 #include <list.h>
+#include <param.h>
 #include <trap.h>
 #include <memlayout.h>
+#include <mmu.h>
 #include <skew_heap.h>
 
 
@@ -15,6 +17,33 @@ enum proc_state {
     PROC_RUNNABLE,    // runnable(maybe running)
     PROC_ZOMBIE,      // almost dead, and wait parent proc to reclaim his resource
 };
+
+#define NSEGS     7
+
+// Per-CPU state
+struct cpu {
+  int8_t id;                    // Local APIC ID; index into cpus[] below
+  struct context *scheduler;   // swtch() here to enter scheduler*/
+  struct taskstate ts;         // Used by x86 to find stack for interrupt*/
+  struct segdesc gdt[NSEGS];   // x86 global descriptor table*/
+  volatile uint32_t started;       // Has the CPU started?
+  int ncli;                    // Depth of pushcli nesting.
+  int intena;                  // Were interrupts enabled before pushcli?
+  
+  // Cpu-local storage variables; see below
+  struct cpu *cpu;
+  struct proc_struct *current;           // The currently-running process.
+  struct proc_struct *idleproc;
+};
+
+extern struct cpu cpus[NCPU];
+extern int ncpu;
+
+
+extern struct cpu *cpu asm("%gs:0");       // &cpus[cpunum()]*/
+extern struct proc_struct *current asm("%gs:4");     // cpus[cpunum()].proc
+extern struct proc_struct *idleproc asm("%gs:8");
+
 
 // Saved registers for kernel context switches.
 // Don't need to save all the %fs etc. segment registers,
@@ -81,9 +110,15 @@ struct proc_struct {
 #define le2proc(le, member)         \
     to_struct((le), struct proc_struct, member)
 
-extern struct proc_struct *idleproc, *initproc, *current;
+extern struct proc_struct *initproc;
+/*extern struct proc_struct *current;*/
+/*extern struct proc_struct *idleproc;*/
 
 void proc_init(void);
+/*void pric_init2(void);*/
+void init_idle(void);
+void first_proc(void);
+
 void proc_run(struct proc_struct *proc);
 int kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags);
 

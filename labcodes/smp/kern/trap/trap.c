@@ -64,7 +64,6 @@ idt_init(void) {
     }
     SETGATE(idt[T_SYSCALL], 1, GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
 
-    //SETCALLGATE(idt[T_SYSCALL], GD_KTEXT, __vectors[T_SYSCALL], DPL_USER);
     lidt(&idt_pd);
 }
 
@@ -182,6 +181,7 @@ pgfault_handler(struct trapframe *tf) {
         if (current == NULL) {
             print_trapframe(tf);
             print_pgfault(tf);
+            //print_stackframe();
             panic("unhandled page fault.\n");
         }
         mm = current->mm;
@@ -241,11 +241,12 @@ trap_dispatch(struct trapframe *tf) {
          *    Every tick, you should update the system time, iterate the timers, and trigger the timers which are end to call scheduler.
          *    You can use one funcitons to finish all these things.
          */
+        //cprintf("this is cpu %d\n", cpunum());
+        run_timer_list();
         if ((++ticks) % TICK_NUM == 0) {
-            //print_ticks();
             current->need_resched = 1;
-            run_timer_list();
         }
+        lapiceoi();
         break;
     case IRQ_OFFSET + IRQ_COM1:
     case IRQ_OFFSET + IRQ_KBD:
@@ -255,6 +256,7 @@ trap_dispatch(struct trapframe *tf) {
           extern void dev_stdin_write(char c);
           dev_stdin_write(c);
         }
+        lapiceoi();
         break;
     //LAB1 CHALLENGE 1 : YOUR CODE you should modify below codes.
     case T_SWITCH_TOU:
@@ -264,6 +266,7 @@ trap_dispatch(struct trapframe *tf) {
     case IRQ_OFFSET + IRQ_IDE1:
     case IRQ_OFFSET + IRQ_IDE2:
         /* do nothing */
+        lapiceoi();
         break;
     default:
         print_trapframe(tf);

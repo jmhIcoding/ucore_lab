@@ -73,11 +73,11 @@ list_entry_t proc_list;
 static list_entry_t hash_list[HASH_LIST_SIZE];
 
 // idle proc
-struct proc_struct *idleproc = NULL;
+//struct proc_struct *idleproc = NULL;
 // init proc
 struct proc_struct *initproc = NULL;
 // current proc
-struct proc_struct *current = NULL;
+//struct proc_struct *current = NULL;
 
 static int nr_process = 0;
 
@@ -703,7 +703,7 @@ load_icode(int fd, int argc, char **kargv) {
     assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-2*PGSIZE , PTE_USER) != NULL);
     assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-3*PGSIZE , PTE_USER) != NULL);
     assert(pgdir_alloc_page(mm->pgdir, USTACKTOP-4*PGSIZE , PTE_USER) != NULL);
-    
+    sysfile_close(fd);
     mm_count_inc(mm);
     current->mm = mm;
     current->cr3 = PADDR(mm->pgdir);
@@ -733,8 +733,9 @@ load_icode(int fd, int argc, char **kargv) {
     tf->tf_ds = tf->tf_es = tf->tf_ss = USER_DS;
     tf->tf_esp = stacktop;
     tf->tf_eip = elf->e_entry;
-    tf->tf_eflags |= FL_IF;
+    tf->tf_eflags = FL_IF;
     ret = 0;
+
 
 out:
     return ret;
@@ -833,12 +834,14 @@ do_execve(const char *name, int argc, const char **argv) {
         }
         current->mm = NULL;
     }
+    //cprintf("im going to read code\n");
     ret= -E_NO_MEM;;
     if ((ret = load_icode(fd, argc, kargv)) != 0) {
         goto execve_exit;
     }
     put_kargv(argc, kargv);
     set_proc_name(current, local_name);
+    //cprintf("ive read code\n");
     return 0;
 
 execve_exit:
@@ -983,6 +986,7 @@ user_main(void *arg) {
 static int
 init_main(void *arg) {
     int ret;
+    cprintf("here is init_main : creating user_main threads\n");
     if ((ret = vfs_set_bootfs("disk0:")) != 0) {
         panic("set boot fs failed: %e.\n", ret);
     }
@@ -1004,10 +1008,10 @@ init_main(void *arg) {
     fs_cleanup();
         
     cprintf("all user-mode processes have quit.\n");
-    assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
-    assert(nr_process == 2);
-    assert(list_next(&proc_list) == &(initproc->list_link));
-    assert(list_prev(&proc_list) == &(initproc->list_link));
+    //assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
+    //assert(nr_process == 2);
+    //assert(list_next(&proc_list) == &(initproc->list_link));
+    //assert(list_prev(&proc_list) == &(initproc->list_link));
 
     cprintf("init check memory pass.\n");
     return 0;
@@ -1024,6 +1028,10 @@ proc_init(void) {
         list_init(hash_list + i);
     }
 
+
+}
+
+void init_idle(void) {
     if ((idleproc = alloc_proc()) == NULL) {
         panic("cannot alloc idleproc.\n");
     }
@@ -1042,7 +1050,9 @@ proc_init(void) {
     nr_process ++;
 
     current = idleproc;
+}
 
+void first_proc(void){
     int pid = kernel_thread(init_main, NULL, 0);
     if (pid <= 0) {
         panic("create init_main failed.\n");
@@ -1051,15 +1061,19 @@ proc_init(void) {
     initproc = find_proc(pid);
     set_proc_name(initproc, "init");
 
-    assert(idleproc != NULL && idleproc->pid == 0);
-    assert(initproc != NULL && initproc->pid == 1);
+   
+    //assert(idleproc != NULL && idleproc->pid == 0);
+    //assert(initproc != NULL && initproc->pid == 1);
 }
 
 // cpu_idle - at the end of kern_init, the first kernel thread idleproc will do below works
 void
 cpu_idle(void) {
     while (1) {
+        //cprintf("%d\n", current->pid);
         if (current->need_resched) {
+            //cprintf("schedule..\n");
+            //cprintf("this is cpu %d\n", cpunum());
             schedule();
         }
     }
@@ -1094,3 +1108,4 @@ do_sleep(unsigned int time) {
     del_timer(timer);
     return 0;
 }
+
