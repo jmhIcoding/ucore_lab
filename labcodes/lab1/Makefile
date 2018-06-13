@@ -208,9 +208,9 @@ TARGETS: $(TARGETS)
 
 .PHONY: qemu qemu-nox debug debug-nox
 qemu-mon: $(UCOREIMG)
-	$(V)$(QEMU) -monitor stdio -hda $< -serial null
+	$(V)$(QEMU) -nographic -monitor stdio -hda $< -serial null
 qemu: $(UCOREIMG)
-	$(V)$(QEMU) -parallel stdio -hda $< -serial null
+	$(V)$(QEMU) -nographic -parallel stdio -hda $< -serial null
 
 qemu-nox: $(UCOREIMG)
 	$(V)$(QEMU) -serial mon:stdio -hda $< -nographic
